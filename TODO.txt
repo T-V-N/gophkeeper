@@ -1,0 +1,2 @@
+1. Each user can't save more than 500 entries
+3. HTTPS for email confirm, GRPC for the rest
