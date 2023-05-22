@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+option go_package = "grpc.card";
+
+message CardEntry {
+  string id = 1;
+  string card_number_hash = 2;
+  string valid_until_hash = 3;
+  string cvv_hash = 4;
+  string last_four_digits = 5;
+  string entry_hash = 6;
+}
+
+message ExistingCardHash {
+  string id = 1;
+  string entry_hash = 2;
+}
+
+message ListCardRequest {
+  repeated ExistingCardHash existing_hashes = 1;
+}
+
+message ListCardResponse {
+  string error = 1;
+  repeated CardEntry cards = 2;
+}
+
+message CreateCardRequest {
+  string card_number_hash = 1;
+  string valid_until_hash = 2;
+  string CVV_hash = 3;
+  string last_four_digits = 4;
+}
+
+message CreateCardResponse {
+  string error = 1;
+  string id = 2;
+}
+
+message UpdateCardRequest {
+  string id = 1;
+  string card_number_hash = 2;
+  string valid_until_hash = 3;
+  string CVV_hash = 4;
+  string last_four_digits = 5;
+  string previous_hash = 6;
+  bool is_deleted = 7;
+  bool force_update = 8;
+}
+
+message UpdateCardResponse {
+  string error = 1;
+}
+
+service Card {
+  rpc ListCard(ListCardRequest) returns (ListCardResponse);
+  rpc CreateCard(CreateCardRequest) returns (CreateCardResponse);
+  rpc UpdateCard(UpdateCardRequest) returns (UpdateCardResponse);
+}

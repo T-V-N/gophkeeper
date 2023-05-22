@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+
 	"github.com/T-V-N/gophkeeper/internal/app"
 	"github.com/T-V-N/gophkeeper/internal/config"
 	"github.com/T-V-N/gophkeeper/internal/helpers"
 	"github.com/T-V-N/gophkeeper/internal/storage"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 func Test_e2e_register_upload_everything(t *testing.T) {
@@ -26,16 +27,15 @@ func Test_e2e_register_upload_everything(t *testing.T) {
 	}
 
 	t.Run("Connects to storage", func(t *testing.T) {
-		_, err := storage.InitStorage(*cfg)
+		_, err := storage.InitCardStorage(cfg)
 
 		assert.NoError(t, err, "Shall connect")
 	})
 
-	s, err := storage.InitStorage(*cfg)
 	sender := helpers.InitEmailSender(cfg)
 	userApp := &app.UserApp{}
 	t.Run("Creates user", func(t *testing.T) {
-		userApp, err = app.InitUserApp(s.Conn, cfg, sugar, *sender)
+		userApp, err = app.InitUserApp(cfg, sugar, sender)
 		uid, err := userApp.Register(context.Background(), "dr.tvn@yandex.ru", "password1!A")
 		user, err := userApp.User.GetUserByID(context.Background(), uid)
 		err = userApp.ConfirmUser(context.Background(), "dr.tvn@yandex.ru", user.VerificationCode)

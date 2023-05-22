@@ -8,24 +8,24 @@ import (
 	"log"
 	"time"
 
-	"github.com/T-V-N/gophkeeper/internal/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+
+	"github.com/T-V-N/gophkeeper/internal/config"
 )
 
 type S3Store struct {
 	S3Client      *s3.Client
 	PresignClient *s3.PresignClient
-	Cfg           *config.Config
+	Cfg           *config.S3Config
 	BucketName    string
 }
 
-func InitS3Storage(ctx context.Context, cfg *config.Config) *S3Store {
+func InitS3Storage(ctx context.Context, cfg *config.S3Config) *S3Store {
 	r2Resolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 		return aws.Endpoint{
 			URL: fmt.Sprintf(cfg.S3URL),
@@ -95,4 +95,17 @@ func (s S3Store) GetUploadLink(ctx context.Context, objectKey string) (string, e
 	}
 
 	return request.URL, nil
+}
+
+func (s S3Store) GetFileUpdatedAt(ctx context.Context, objectKey string) (time.Time, error) {
+	request, err := s.S3Client.GetObjectAttributes(ctx, &s3.GetObjectAttributesInput{
+		Bucket: aws.String(s.BucketName),
+		Key:    aws.String(objectKey),
+	})
+
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return *request.LastModified, nil
 }

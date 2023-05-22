@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/T-V-N/gophkeeper/internal/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/T-V-N/gophkeeper/internal/config"
 	storage "github.com/T-V-N/gophkeeper/internal/storage/s3"
 )
 
-func InitTestConfig() config.Config {
-	return config.Config{S3URL: "http://localhost:9090", S3AccessKey: "hey", S3Secret: "hey2", S3Bucket: "mockbucket"}
+func InitTestConfig() config.S3Config {
+	return config.S3Config{S3URL: "http://localhost:9090", S3AccessKey: "hey", S3Secret: "hey2", S3Bucket: "mockbucket"}
 }
 func Test_ConnectToS3(t *testing.T) {
 	cfg := InitTestConfig()

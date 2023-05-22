@@ -3,10 +3,10 @@ package auth
 import (
 	"time"
 
+	"github.com/dgrijalva/jwt-go/v4"
+
 	"github.com/T-V-N/gophkeeper/internal/config"
 	"github.com/T-V-N/gophkeeper/internal/utils"
-
-	"github.com/dgrijalva/jwt-go/v4"
 )
 
 type UIDKey struct{}

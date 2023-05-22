@@ -58,6 +58,14 @@ func CheckSum(data string) string {
 	return hex.EncodeToString(checksum[:])
 }
 
+func GenerateConfirmationCode(email, secret string) string {
+	hash := md5.New()
+	hash.Write([]byte(email))
+	hash.Write([]byte(secret))
+
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 func PackedCheckSum(data []string) string {
 	checksum := md5.Sum([]byte(strings.Join(data, "")))
 

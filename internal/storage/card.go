@@ -2,8 +2,11 @@ package storage
 
 import (
 	"context"
+	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/T-V-N/gophkeeper/internal/config"
 )
 
 type CardStorage struct {
@@ -21,7 +24,14 @@ type Card struct {
 	IsDeleted      bool
 }
 
-func InitCard(conn *pgxpool.Pool) (*CardStorage, error) {
+func InitCardStorage(cfg *config.Config) (*CardStorage, error) {
+	conn, err := pgxpool.New(context.Background(), cfg.DatabaseURI)
+
+	if err != nil {
+		log.Printf("Unable to connect to database: %v\n", err.Error())
+		return nil, err
+	}
+
 	return &CardStorage{conn}, nil
 }
 
@@ -63,7 +73,7 @@ func (c *CardStorage) UpdateCard(ctx context.Context, id, cardNumberHash, validU
 	return nil
 }
 
-func (c *CardStorage) ListCardByID(ctx context.Context, uid string) ([]Card, error) {
+func (c *CardStorage) ListCardByUID(ctx context.Context, uid string) ([]Card, error) {
 	sqlStatement := `
 	SELECT id, uid, card_number_hash, valid_until_hash, CVV_hash, last_four_digits, entry_hash, is_deleted FROM log_passwords WHERE UID = $1 
 	`
@@ -117,4 +127,8 @@ func (c *CardStorage) GetCardByID(ctx context.Context, id string) (*Card, error)
 	}
 
 	return &card, nil
+}
+
+func (c *CardStorage) Close() {
+	c.Conn.Close()
 }

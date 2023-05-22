@@ -2,32 +2,47 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
 	"github.com/T-V-N/gophkeeper/internal/storage"
 	"github.com/T-V-N/gophkeeper/internal/storage/s3"
-
 	"github.com/T-V-N/gophkeeper/internal/utils"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"go.uber.org/zap"
 )
 
+type File interface {
+	CreateFile(ctx context.Context, uid, fileName string) (string, error)
+	UpdateFile(ctx context.Context, id, fileName, s3Link string, isDeleted bool, committedAt time.Time) error
+	ListFilesByUID(ctx context.Context, uid string) (*[]storage.File, error)
+	GetFileByID(ctx context.Context, id string) (*storage.File, error)
+	Close()
+}
+
+type S3Store interface {
+	GetUploadLink(ctx context.Context, id string) (string, error)
+	GetFileUpdatedAt(ctx context.Context, id string) (time.Time, error)
+}
+
 type FileApp struct {
-	File   *storage.FileStorage
-	s3     *s3.S3Store
+	File   File
+	S3     S3Store
 	Cfg    *config.Config
 	logger *zap.SugaredLogger
 }
 
-func InitFileApp(conn *pgxpool.Pool, cfg *config.Config, logger *zap.SugaredLogger) (*FileApp, error) {
-	file, err := storage.InitFile(conn)
+func InitFileApp(cfg *config.Config, logger *zap.SugaredLogger) (*FileApp, error) {
+	file, err := storage.InitFileStorage(cfg)
 
 	if err != nil {
 		return nil, err
 	}
 
-	s3Store := s3.InitS3Storage(context.Background(), cfg)
+	s3Store := s3.InitS3Storage(context.Background(), &cfg.S3Config)
 
 	return &FileApp{file, s3Store, cfg, logger}, nil
 }
@@ -42,40 +57,87 @@ func (fa *FileApp) CreateFile(ctx context.Context, uid, fileName string) (string
 	return id, nil
 }
 
-func (fa *FileApp) RequestUpdateFile(ctx context.Context, id string) (string, error) {
+func (fa *FileApp) RequestUpdateFile(ctx context.Context, uid, id string) (string, error) {
 	file, err := fa.File.GetFileByID(ctx, id)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.NoDataFound {
+			return "", utils.WrapError(utils.ErrNoData, nil)
+		}
+
 		return "", utils.WrapError(err, utils.ErrDBLayer)
 	}
 
-	if file == nil {
-		return "", utils.ErrNotFound
+	if file.UID != uid {
+		return "", utils.WrapError(utils.ErrNotAuthorized, nil)
 	}
 
 	currentTime := time.Now()
 
-	if int(currentTime.Sub(file.CommittedAt).Minutes()) < fa.Cfg.FileUpdateTimeWindow {
-		return "", utils.ErrConflict
+	if int(currentTime.Sub(file.CommittedAt).Minutes()) < fa.Cfg.S3Config.FileUpdateTimeWindow {
+		return "", utils.WrapError(utils.ErrConflict, nil)
 	}
 
-	return fa.s3.GetUploadLink(ctx, id)
+	return fa.S3.GetUploadLink(ctx, id)
 }
 
-func (fa *FileApp) CommitUpdateFile(ctx context.Context, id string, committedAt time.Time, forceUpdate bool) error {
+func (fa *FileApp) CommitUpdateFile(ctx context.Context, uid, id string, previousCommitedAt time.Time, forceUpdate bool) error {
 	file, err := fa.File.GetFileByID(ctx, id)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.NoDataFound {
+			return utils.WrapError(utils.ErrNoData, nil)
+		}
+
 		return utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	if file == nil {
-		return utils.ErrNotFound
+		return utils.WrapError(utils.ErrNotFound, nil)
 	}
 
-	if (committedAt != file.CommittedAt) && !forceUpdate {
-		return utils.ErrConflict
+	if file.UID != uid {
+		return utils.WrapError(utils.ErrNotAuthorized, nil)
 	}
 
-	return fa.File.UpdateFile(ctx, id, file.FileName, file.S3Link, file.IsDeleted, committedAt)
+	fileCommitted, err := fa.S3.GetFileUpdatedAt(ctx, id)
+
+	if err != nil {
+		return utils.WrapError(err, utils.ErrThirdParty)
+	}
+
+	if (file.CommittedAt.Unix() != previousCommitedAt.Unix()) && !forceUpdate {
+		return utils.WrapError(utils.ErrConflict, nil)
+	}
+
+	return fa.File.UpdateFile(ctx, id, file.FileName, file.S3Link, file.IsDeleted, fileCommitted)
+}
+
+func (fa *FileApp) ListFile(ctx context.Context, uid string, existingFiles []ExistingFiles) ([]storage.File, error) {
+	files, err := fa.File.ListFilesByUID(ctx, uid)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var result []storage.File
+
+	for _, file := range *files {
+		include := true
+
+		for _, existingFile := range existingFiles {
+			if (file.CommittedAt.Unix() == existingFile.CommittedAt.Unix()) && (file.ID == existingFile.ID) {
+				include = false
+				break
+			}
+		}
+
+		if include {
+			result = append(result, file)
+		}
+	}
+
+	return result, nil
 }

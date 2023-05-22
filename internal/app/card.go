@@ -2,22 +2,33 @@ package app
 
 import (
 	"context"
+	"errors"
+
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
 	"github.com/T-V-N/gophkeeper/internal/storage"
 	"github.com/T-V-N/gophkeeper/internal/utils"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"go.uber.org/zap"
 )
 
+type Card interface {
+	CreateCard(ctx context.Context, uid, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, entryHash string) (string, error)
+	UpdateCard(ctx context.Context, id, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, entryHash string, isDeleted bool) error
+	ListCardByUID(ctx context.Context, uid string) ([]storage.Card, error)
+	GetCardByID(ctx context.Context, id string) (*storage.Card, error)
+	Close()
+}
+
 type CardApp struct {
-	Card   *storage.CardStorage
+	Card   Card
 	Cfg    *config.Config
 	logger *zap.SugaredLogger
 }
 
-func InitCardApp(conn *pgxpool.Pool, cfg *config.Config, logger *zap.SugaredLogger) (*CardApp, error) {
-	c, err := storage.InitCard(conn)
+func InitCardApp(cfg *config.Config, logger *zap.SugaredLogger) (*CardApp, error) {
+	c, err := storage.InitCardStorage(cfg)
 
 	if err != nil {
 		return nil, err
@@ -38,22 +49,58 @@ func (c *CardApp) CreateCard(ctx context.Context, uid, cardNumberHash, validUnti
 	return id, nil
 }
 
-func (c *CardApp) UpdateCard(ctx context.Context, id, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, previousHash string, isDeleted, forceUpdate bool) error {
+func (c *CardApp) UpdateCard(ctx context.Context, uid, id, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, previousHash string, isDeleted, forceUpdate bool) error {
 	card, err := c.Card.GetCardByID(ctx, id)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.NoDataFound {
+			return utils.WrapError(utils.ErrNoData, nil)
+		}
+
 		return utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	if card == nil {
-		return utils.ErrNotFound
+		return utils.WrapError(utils.ErrNotFound, nil)
 	}
 
 	if (previousHash != card.EntryHash) && !forceUpdate {
-		return utils.ErrConflict
+		return utils.WrapError(utils.ErrConflict, nil)
+	}
+
+	if card.UID != uid {
+		return utils.WrapError(utils.ErrNotAuthorized, nil)
 	}
 
 	entryHash := utils.PackedCheckSum([]string{cardNumberHash, validUntilHash, CVVHash})
 
 	return c.Card.UpdateCard(ctx, id, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, entryHash, isDeleted)
+}
+
+func (c *CardApp) ListCard(ctx context.Context, uid string, existingHashes []ExistingHash) ([]storage.Card, error) {
+	cards, err := c.Card.ListCardByUID(ctx, uid)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var result []storage.Card
+
+	for _, card := range cards {
+		include := true
+
+		for _, existingHash := range existingHashes {
+			if card.EntryHash == existingHash.EntryHash {
+				include = false
+				break
+			}
+		}
+
+		if include {
+			result = append(result, card)
+		}
+	}
+
+	return result, nil
 }

@@ -2,9 +2,12 @@ package storage
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/T-V-N/gophkeeper/internal/config"
 )
 
 type FileStorage struct {
@@ -20,7 +23,14 @@ type File struct {
 	IsDeleted   bool
 }
 
-func InitFile(conn *pgxpool.Pool) (*FileStorage, error) {
+func InitFileStorage(cfg *config.Config) (*FileStorage, error) {
+	conn, err := pgxpool.New(context.Background(), cfg.DatabaseURI)
+
+	if err != nil {
+		log.Printf("Unable to connect to database: %v\n", err.Error())
+		return nil, err
+	}
+
 	return &FileStorage{conn}, nil
 }
 
@@ -113,4 +123,8 @@ func (f *FileStorage) ListFilesByUID(ctx context.Context, uid string) (*[]File, 
 	}
 
 	return &Files, nil
+}
+
+func (f *FileStorage) Close() {
+	f.Conn.Close()
 }

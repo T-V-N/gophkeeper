@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
-	"github.com/T-V-N/gophkeeper/internal/utils"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/T-V-N/gophkeeper/internal/config"
+	"github.com/T-V-N/gophkeeper/internal/utils"
 )
 
 type UserStorage struct {
@@ -27,7 +30,14 @@ type User struct {
 	TOTPEnabled      bool
 }
 
-func InitUser(conn *pgxpool.Pool) (*UserStorage, error) {
+func InitUserStorage(cfg *config.Config) (*UserStorage, error) {
+	conn, err := pgxpool.New(context.Background(), cfg.DatabaseURI)
+
+	if err != nil {
+		log.Printf("Unable to connect to database: %v\n", err.Error())
+		return nil, err
+	}
+
 	return &UserStorage{conn}, nil
 }
 
@@ -126,4 +136,8 @@ func (user *UserStorage) GetUserByID(ctx context.Context, uid string) (User, err
 	}
 
 	return u, nil
+}
+
+func (user *UserStorage) Close() {
+	user.Conn.Close()
 }

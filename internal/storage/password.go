@@ -2,8 +2,11 @@ package storage
 
 import (
 	"context"
+	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/T-V-N/gophkeeper/internal/config"
 )
 
 type LogPasswordStorage struct {
@@ -20,7 +23,14 @@ type LogPassword struct {
 	IsDeleted    bool
 }
 
-func InitLogPassword(conn *pgxpool.Pool) (*LogPasswordStorage, error) {
+func InitLogPasswordStorage(cfg *config.Config) (*LogPasswordStorage, error) {
+	conn, err := pgxpool.New(context.Background(), cfg.DatabaseURI)
+
+	if err != nil {
+		log.Printf("Unable to connect to database: %v\n", err.Error())
+		return nil, err
+	}
+
 	return &LogPasswordStorage{conn}, nil
 }
 
@@ -115,4 +125,8 @@ func (lp *LogPasswordStorage) GetLogPasswordByID(ctx context.Context, id string)
 	}
 
 	return &logPass, nil
+}
+
+func (lp *LogPasswordStorage) Close() {
+	lp.Conn.Close()
 }

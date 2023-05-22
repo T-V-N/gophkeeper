@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+
+option go_package = "grpc.file";
+
+message FileEntry {
+  string id = 1;
+  string file_name = 2;
+  string s3_link = 3;
+  google.protobuf.Timestamp commited_at = 4;
+}
+
+message CreateFileRequest {
+  string filename = 1;
+}
+
+message CreateFileResponse {
+  string error = 1;
+  string id = 2;
+}
+
+message UpdateFileRequest {
+  string id = 1;
+}
+
+message UpdateFileResponse {
+  string error = 1;
+  string upload_link = 2;
+}
+
+message CommitUpdateRequest {
+  string id = 1;
+  google.protobuf.Timestamp committed_at = 2;
+  bool force_update = 3;
+}
+
+message CommitUpdateResponse {
+  string error = 1;
+}
+
+message ExistingFile {
+  string id = 1;
+  google.protobuf.Timestamp committed_at = 2;
+}
+
+message ListFileRequest {
+  repeated ExistingFile existing_files = 1;
+}
+
+message ListFileResponse {
+  string error = 1;
+  repeated FileEntry files = 2;
+}
+
+service File {
+  rpc CreateFile(CreateFileRequest) returns (CreateFileResponse);
+  rpc UpdateFile(UpdateFileRequest) returns (UpdateFileResponse);
+  rpc CommitUpdateFile(CommitUpdateRequest) returns (CommitUpdateResponse);
+  rpc ListFile(ListFileRequest) returns (ListFileResponse);
+}

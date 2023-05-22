@@ -2,8 +2,11 @@ package storage
 
 import (
 	"context"
+	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/T-V-N/gophkeeper/internal/config"
 )
 
 type TextNotesStorage struct {
@@ -19,7 +22,14 @@ type TextNote struct {
 	IsDeleted    bool
 }
 
-func InitTextNote(conn *pgxpool.Pool) (*TextNotesStorage, error) {
+func InitTextNoteStorage(cfg *config.Config) (*TextNotesStorage, error) {
+	conn, err := pgxpool.New(context.Background(), cfg.DatabaseURI)
+
+	if err != nil {
+		log.Printf("Unable to connect to database: %v\n", err.Error())
+		return nil, err
+	}
+
 	return &TextNotesStorage{conn}, nil
 }
 
@@ -60,7 +70,7 @@ func (t *TextNotesStorage) UpdateTextNote(ctx context.Context, id, noteName, not
 	return nil
 }
 
-func (t *TextNotesStorage) ListTextNoteByUID(ctx context.Context, uid string) (interface{}, error) {
+func (t *TextNotesStorage) ListTextNoteByUID(ctx context.Context, uid string) ([]TextNote, error) {
 	sqlStatement := `
 	SELECT id, uid, note_name, note_text_hash, entry_hash, is_deleted FROM text_notes WHERE UID = $1 
 	`
@@ -114,4 +124,8 @@ func (t *TextNotesStorage) GetTextNoteByID(ctx context.Context, id string) (*Tex
 	}
 
 	return &note, nil
+}
+
+func (t *TextNotesStorage) Close() {
+	t.Conn.Close()
 }
