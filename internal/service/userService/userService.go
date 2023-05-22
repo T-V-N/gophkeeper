@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 
-	"github.com/T-V-N/gophkeeper/internal/config"
-	userPB "github.com/T-V-N/gophkeeper/internal/grpc/user"
-	"github.com/T-V-N/gophkeeper/internal/utils"
 	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/T-V-N/gophkeeper/internal/app"
 	"github.com/T-V-N/gophkeeper/internal/auth"
+	"github.com/T-V-N/gophkeeper/internal/config"
+	userPB "github.com/T-V-N/gophkeeper/internal/grpc/user"
 	"github.com/T-V-N/gophkeeper/internal/service"
+	"github.com/T-V-N/gophkeeper/internal/utils"
 )
 
 type UserService struct {
