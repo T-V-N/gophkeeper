@@ -2,11 +2,8 @@ package app
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
@@ -51,7 +48,7 @@ func (fa *FileApp) CreateFile(ctx context.Context, uid, fileName string) (string
 	id, err := fa.File.CreateFile(ctx, uid, fileName)
 
 	if err != nil {
-		return "", utils.WrapError(err, utils.ErrDBLayer)
+		return "", err
 	}
 
 	return id, nil
@@ -61,22 +58,17 @@ func (fa *FileApp) RequestUpdateFile(ctx context.Context, uid, id string) (strin
 	file, err := fa.File.GetFileByID(ctx, id)
 
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.NoDataFound {
-			return "", utils.WrapError(utils.ErrNoData, nil)
-		}
-
-		return "", utils.WrapError(err, utils.ErrDBLayer)
+		return "", err
 	}
 
 	if file.UID != uid {
-		return "", utils.WrapError(utils.ErrNotAuthorized, nil)
+		return "", utils.ErrNotAuthorized
 	}
 
 	currentTime := time.Now()
 
 	if int(currentTime.Sub(file.CommittedAt).Minutes()) < fa.Cfg.S3Config.FileUpdateTimeWindow {
-		return "", utils.WrapError(utils.ErrConflict, nil)
+		return "", utils.ErrConflict
 	}
 
 	return fa.S3.GetUploadLink(ctx, id)
@@ -86,30 +78,21 @@ func (fa *FileApp) CommitUpdateFile(ctx context.Context, uid, id string, previou
 	file, err := fa.File.GetFileByID(ctx, id)
 
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.NoDataFound {
-			return utils.WrapError(utils.ErrNoData, nil)
-		}
-
-		return utils.WrapError(err, utils.ErrDBLayer)
-	}
-
-	if file == nil {
-		return utils.WrapError(utils.ErrNotFound, nil)
+		return err
 	}
 
 	if file.UID != uid {
-		return utils.WrapError(utils.ErrNotAuthorized, nil)
+		return utils.ErrNotAuthorized
 	}
 
 	fileCommitted, err := fa.S3.GetFileUpdatedAt(ctx, id)
 
 	if err != nil {
-		return utils.WrapError(err, utils.ErrThirdParty)
+		return err
 	}
 
 	if (file.CommittedAt.Unix() != previousCommitedAt.Unix()) && !forceUpdate {
-		return utils.WrapError(utils.ErrConflict, nil)
+		return utils.ErrConflict
 	}
 
 	return fa.File.UpdateFile(ctx, id, file.FileName, file.S3Link, file.IsDeleted, fileCommitted)

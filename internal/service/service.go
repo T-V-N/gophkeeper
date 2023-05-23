@@ -19,7 +19,7 @@ func ExtractUIDFromCtx(ctx context.Context) (string, error) {
 		}
 	}
 
-	return "", utils.WrapError(utils.ErrAppLayer, &utils.APIError{Msg: "Can't parse uid"})
+	return "", utils.ErrAppLayer
 }
 
 // func InitUserRPCService(cfg *config.Config, a *app.UserApp) *UserService {

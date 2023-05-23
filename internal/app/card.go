@@ -2,10 +2,7 @@ package app
 
 import (
 	"context"
-	"errors"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
@@ -53,24 +50,15 @@ func (c *CardApp) UpdateCard(ctx context.Context, uid, id, cardNumberHash, valid
 	card, err := c.Card.GetCardByID(ctx, id)
 
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.NoDataFound {
-			return utils.WrapError(utils.ErrNoData, nil)
-		}
-
-		return utils.WrapError(err, utils.ErrDBLayer)
-	}
-
-	if card == nil {
-		return utils.WrapError(utils.ErrNotFound, nil)
-	}
-
-	if (previousHash != card.EntryHash) && !forceUpdate {
-		return utils.WrapError(utils.ErrConflict, nil)
+		return err
 	}
 
 	if card.UID != uid {
-		return utils.WrapError(utils.ErrNotAuthorized, nil)
+		return utils.ErrNotAuthorized
+	}
+
+	if (previousHash != card.EntryHash) && !forceUpdate {
+		return utils.ErrConflict
 	}
 
 	entryHash := utils.PackedCheckSum([]string{cardNumberHash, validUntilHash, CVVHash})

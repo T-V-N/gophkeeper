@@ -3,7 +3,6 @@ package s3
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -13,9 +12,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
+	"github.com/T-V-N/gophkeeper/internal/utils"
 )
 
 type S3Store struct {
@@ -28,13 +27,16 @@ type S3Store struct {
 func InitS3Storage(ctx context.Context, cfg *config.S3Config) *S3Store {
 	r2Resolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 		return aws.Endpoint{
-			URL: fmt.Sprintf(cfg.S3URL),
+			PartitionID:   "aws",
+			URL:           fmt.Sprintf(cfg.S3URL),
+			SigningRegion: region,
 		}, nil
 	})
 
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx,
 		awsConfig.WithEndpointResolverWithOptions(r2Resolver),
 		awsConfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.S3AccessKey, cfg.S3Secret, "")),
+		awsConfig.WithRegion("eu-central-1"),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -43,17 +45,6 @@ func InitS3Storage(ctx context.Context, cfg *config.S3Config) *S3Store {
 	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 		o.UsePathStyle = true
 	})
-
-	_, err = client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: &cfg.S3Bucket})
-
-	if err != nil {
-		var bne *types.BucketAlreadyExists
-		if errors.As(err, &bne) {
-			log.Println("error:", bne)
-		} else {
-			log.Panic("unable to connect to the s3")
-		}
-	}
 
 	return &S3Store{S3Client: client, BucketName: cfg.S3Bucket, Cfg: cfg}
 }
@@ -73,13 +64,13 @@ func (s S3Store) UploadLargeObject(ctx context.Context, objectKey string, largeO
 		Body:   largeBuffer,
 	})
 
-	return err
+	return utils.WrapError(err, utils.ErrThirdParty)
 }
 
 func (s S3Store) DeleteObject(ctx context.Context, objectKey string) error {
 	_, err := s.S3Client.DeleteObject(ctx, &s3.DeleteObjectInput{Key: aws.String(objectKey)})
 
-	return err
+	return utils.WrapError(err, utils.ErrThirdParty)
 }
 
 func (s S3Store) GetUploadLink(ctx context.Context, objectKey string) (string, error) {
@@ -91,7 +82,7 @@ func (s S3Store) GetUploadLink(ctx context.Context, objectKey string) (string, e
 	})
 
 	if err != nil {
-		return "", err
+		return "", utils.WrapError(err, utils.ErrThirdParty)
 	}
 
 	return request.URL, nil
@@ -104,7 +95,7 @@ func (s S3Store) GetFileUpdatedAt(ctx context.Context, objectKey string) (time.T
 	})
 
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, utils.WrapError(err, utils.ErrThirdParty)
 	}
 
 	return *request.LastModified, nil

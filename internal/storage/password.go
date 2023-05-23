@@ -2,11 +2,14 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"log"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
+	"github.com/T-V-N/gophkeeper/internal/utils"
 )
 
 type LogPasswordStorage struct {
@@ -44,7 +47,7 @@ func (lp *LogPasswordStorage) CreateLogPassword(ctx context.Context, uid, loginH
 	err := lp.Conn.QueryRow(ctx, sqlStatement, uid, loginHash, passwordHash, resourceName, entryHash).Scan(&id)
 
 	if err != nil {
-		return id, err
+		return id, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return id, nil
@@ -65,7 +68,7 @@ func (lp *LogPasswordStorage) UpdateLogPassword(ctx context.Context, id, loginHa
 	_, err := lp.Conn.Exec(ctx, updateBalanceSQL, id, loginHash, passwordHash, resourceName, entryHash, isDeleted)
 
 	if err != nil {
-		return err
+		return utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return nil
@@ -78,7 +81,13 @@ func (lp *LogPasswordStorage) ListLogPasswordByUID(ctx context.Context, uid stri
 
 	rows, err := lp.Conn.Query(ctx, sqlStatement, uid)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, utils.ErrNotFound
+			}
+
+			return nil, utils.WrapError(err, utils.ErrDBLayer)
+		}
 	}
 
 	defer rows.Close()
@@ -98,7 +107,7 @@ func (lp *LogPasswordStorage) ListLogPasswordByUID(ctx context.Context, uid stri
 
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return logPasses, nil
@@ -111,7 +120,13 @@ func (lp *LogPasswordStorage) GetLogPasswordByID(ctx context.Context, id string)
 
 	row, err := lp.Conn.Query(ctx, sqlStatement, id)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, utils.ErrNotFound
+			}
+
+			return nil, utils.WrapError(err, utils.ErrDBLayer)
+		}
 	}
 
 	defer row.Close()
@@ -121,7 +136,7 @@ func (lp *LogPasswordStorage) GetLogPasswordByID(ctx context.Context, id string)
 	err = row.Scan(&logPass.ID, &logPass.UID, &logPass.LoginHash, &logPass.PasswordHash, &logPass.ResourceName, &logPass.EntryHash, &logPass.IsDeleted)
 
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return &logPass, nil

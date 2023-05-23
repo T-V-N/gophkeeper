@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -31,12 +30,7 @@ func (lps *LogPasswordService) CreateLogPassword(ctx context.Context, in *logPas
 	id, err := lps.LogPasswordApp.CreateLogPassword(ctx, uid, in.LoginHash, in.PasswordHash, in.ResourceName)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
-		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
-		}
+		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
 	response.Id = id
@@ -56,17 +50,15 @@ func (lps *LogPasswordService) UpdateLogPassword(ctx context.Context, in *logPas
 	err = lps.LogPasswordApp.UpdateLogPassword(ctx, uid, in.Id, in.LoginHash, in.PasswordHash, in.PreviousHash, in.ResourceName, in.IsDeleted, in.ForceUpdate)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrNoData:
-			return nil, status.Error(codes.NotFound, err.(utils.WrappedAPIError).Message())
+		switch err {
+		case utils.ErrNotFound:
+			return nil, status.Error(codes.NotFound, "logpass not found")
 		case utils.ErrConflict:
-			return nil, status.Error(codes.Unavailable, "conflict")
+			return nil, status.Error(codes.Unavailable, "cannot update logpass which is already updated, sync first")
 		case utils.ErrNotAuthorized:
-			return nil, status.Error(codes.Unauthenticated, "unathorized")
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Unauthenticated, "unauthorized")
 		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 
@@ -79,8 +71,7 @@ func (lps *LogPasswordService) ListLogPassword(ctx context.Context, in *logPassP
 	uid, err := service.ExtractUIDFromCtx(ctx)
 
 	if err != nil {
-		response.Error = err.Error()
-		return &response, nil
+		return nil, status.Error(codes.Unauthenticated, "unauthorized")
 	}
 
 	existingHashes := []app.ExistingHash{}
@@ -91,8 +82,12 @@ func (lps *LogPasswordService) ListLogPassword(ctx context.Context, in *logPassP
 	logPasswords, err := lps.LogPasswordApp.ListLogPassword(ctx, uid, existingHashes)
 
 	if err != nil {
-		response.Error = err.Error()
-		return &response, nil
+		switch err {
+		case utils.ErrNotFound:
+			return nil, status.Error(codes.NotFound, "no log passes available")
+		default:
+			return nil, status.Error(codes.Internal, "internal server error ;(")
+		}
 	}
 
 	logPasswordPB := []*logPassPB.LogPasswordEntry{}

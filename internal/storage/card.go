@@ -2,11 +2,14 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"log"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
+	"github.com/T-V-N/gophkeeper/internal/utils"
 )
 
 type CardStorage struct {
@@ -45,7 +48,7 @@ func (c *CardStorage) CreateCard(ctx context.Context, uid, cardNumberHash, valid
 	err := c.Conn.QueryRow(ctx, sqlStatement, uid, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, entryHash).Scan(&id)
 
 	if err != nil {
-		return id, err
+		return id, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return id, nil
@@ -67,7 +70,7 @@ func (c *CardStorage) UpdateCard(ctx context.Context, id, cardNumberHash, validU
 	_, err := c.Conn.Exec(ctx, updateBalanceSQL, id, id, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, entryHash, isDeleted)
 
 	if err != nil {
-		return err
+		return utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return nil
@@ -80,7 +83,13 @@ func (c *CardStorage) ListCardByUID(ctx context.Context, uid string) ([]Card, er
 
 	rows, err := c.Conn.Query(ctx, sqlStatement, uid)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, utils.ErrNotFound
+			}
+
+			return nil, utils.WrapError(err, utils.ErrDBLayer)
+		}
 	}
 
 	defer rows.Close()
@@ -100,7 +109,7 @@ func (c *CardStorage) ListCardByUID(ctx context.Context, uid string) ([]Card, er
 
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return cards, nil
@@ -113,7 +122,13 @@ func (c *CardStorage) GetCardByID(ctx context.Context, id string) (*Card, error)
 
 	rows, err := c.Conn.Query(ctx, sqlStatement, id)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, utils.ErrNotFound
+			}
+
+			return nil, utils.WrapError(err, utils.ErrDBLayer)
+		}
 	}
 
 	defer rows.Close()
@@ -123,7 +138,7 @@ func (c *CardStorage) GetCardByID(ctx context.Context, id string) (*Card, error)
 	err = rows.Scan(&card.ID, &card.UID, &card.CardNumberHash, &card.ValidUntilHash, &card.CVVHash, &card.LastFourDigits, &card.EntryHash, &card.IsDeleted)
 
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return &card, nil

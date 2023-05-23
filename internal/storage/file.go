@@ -2,12 +2,15 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
+	"github.com/T-V-N/gophkeeper/internal/utils"
 )
 
 type FileStorage struct {
@@ -44,7 +47,7 @@ func (f *FileStorage) CreateFile(ctx context.Context, uid, fileName string) (str
 	err := f.Conn.QueryRow(ctx, sqlStatement, uid, fileName).Scan(&id)
 
 	if err != nil {
-		return id, err
+		return id, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return id, nil
@@ -63,7 +66,7 @@ func (f *FileStorage) UpdateFile(ctx context.Context, id, fileName, S3Link strin
 	_, err := f.Conn.Exec(ctx, updateFileSQL, id, fileName, S3Link, CommitedAt, isDeleted)
 
 	if err != nil {
-		return err
+		return utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return nil
@@ -76,7 +79,13 @@ func (f *FileStorage) GetFileByID(ctx context.Context, id string) (*File, error)
 
 	row, err := f.Conn.Query(ctx, sqlStatement, id)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, utils.ErrNotFound
+			}
+
+			return nil, utils.WrapError(err, utils.ErrDBLayer)
+		}
 	}
 
 	defer row.Close()
@@ -86,7 +95,7 @@ func (f *FileStorage) GetFileByID(ctx context.Context, id string) (*File, error)
 	err = row.Scan(&file.ID, &file.UID, &file.FileName, &file.S3Link, &file.CommittedAt, &file.IsDeleted)
 
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return &file, nil
@@ -99,7 +108,13 @@ func (f *FileStorage) ListFilesByUID(ctx context.Context, uid string) (*[]File, 
 
 	rows, err := f.Conn.Query(ctx, sqlStatement, uid)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, utils.ErrNotFound
+			}
+
+			return nil, utils.WrapError(err, utils.ErrDBLayer)
+		}
 	}
 
 	defer rows.Close()
@@ -119,7 +134,7 @@ func (f *FileStorage) ListFilesByUID(ctx context.Context, uid string) (*[]File, 
 
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return &Files, nil

@@ -2,9 +2,7 @@ package service
 
 import (
 	"context"
-	"errors"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -27,23 +25,22 @@ func (us *UserService) Register(ctx context.Context, in *userPB.RegisterRequest)
 	uid, err := us.UserApp.Register(ctx, in.Email, in.Password)
 
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(errors.Unwrap(err), &pgErr) {
-			return nil, status.Error(codes.AlreadyExists, "already exists")
-		}
-
-		switch errors.Unwrap(err) {
+		switch err {
 		case utils.ErrInvalidEmail:
-			return nil, status.Error(codes.InvalidArgument, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.InvalidArgument, "invalid email")
 		case utils.ErrInvalidPwd:
-			return nil, status.Error(codes.InvalidArgument, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.InvalidArgument, "invalid password")
+		case utils.ErrDuplicate:
+			return nil, status.Error(codes.AlreadyExists, "user already exists")
+		default:
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 
 	token, err := auth.CreateToken(uid, us.UserApp.Cfg)
 
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, "cannot create token")
 	}
 
 	response.AuthToken = token
@@ -57,15 +54,17 @@ func (us *UserService) Login(ctx context.Context, in *userPB.LoginRequest) (*use
 	token, err := us.UserApp.Login(ctx, in.Email, in.Password, in.OtpCode)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrBadRequest:
-			return nil, status.Error(codes.InvalidArgument, err.(utils.WrappedAPIError).Message())
+		switch err {
+		case utils.ErrInvalidTOTP:
+			return nil, status.Error(codes.InvalidArgument, "invalid totp")
+		case utils.ErrInvalidEmail:
+			return nil, status.Error(codes.InvalidArgument, "invalid email")
+		case utils.ErrInvalidPwd:
+			return nil, status.Error(codes.Unauthenticated, "wrong password")
 		case utils.ErrNotFound:
-			return nil, status.Error(codes.NotFound, err.(utils.WrappedAPIError).Message())
-		case utils.ErrNotAuthorized:
-			return nil, status.Error(codes.Unauthenticated, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.NotFound, "user not found")
 		default:
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 
@@ -80,21 +79,17 @@ func (us *UserService) GenerateTOTP(ctx context.Context, _ *userPB.Empty) (*user
 	uid, err := service.ExtractUIDFromCtx(ctx)
 
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.(utils.WrappedAPIError).Message())
+		return nil, status.Error(codes.Unauthenticated, "unathorized")
 	}
 
 	otp, err := us.UserApp.GenerateTOTP(ctx, uid)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+		switch err {
 		case utils.ErrBadRequest:
-			return nil, status.Error(codes.InvalidArgument, err.(utils.WrappedAPIError).Message())
-		case utils.ErrAppLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.InvalidArgument, "totp already enabled")
 		default:
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 
@@ -107,19 +102,17 @@ func (us *UserService) EnableTOTP(ctx context.Context, in *userPB.EnableTOTPRequ
 	uid, err := service.ExtractUIDFromCtx(ctx)
 
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.(utils.WrappedAPIError).Message())
+		return nil, status.Error(codes.Unauthenticated, "unauthorized")
 	}
 
 	err = us.UserApp.EnableTOTP(ctx, uid, in.OtpCode)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+		switch err {
 		case utils.ErrNotAuthorized:
-			return nil, status.Error(codes.Unauthenticated, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.InvalidArgument, "wrong otp code")
 		default:
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 	var r userPB.Empty
@@ -130,19 +123,17 @@ func (us *UserService) DisableTOTP(ctx context.Context, in *userPB.DisableTOTPRe
 	uid, err := service.ExtractUIDFromCtx(ctx)
 
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.(utils.WrappedAPIError).Message())
+		return nil, status.Error(codes.Unauthenticated, "unauthorized")
 	}
 
 	err = us.UserApp.DisableTOTP(ctx, uid, in.OtpCode)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+		switch err {
 		case utils.ErrNotAuthorized:
-			return nil, status.Error(codes.Unauthenticated, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Unauthenticated, "wrong otp code")
 		default:
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 

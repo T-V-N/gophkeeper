@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"net/http"
+
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 
@@ -40,15 +42,19 @@ func (es EmailSender) SendConfirmationEmail(to, confirmationURL string) error {
 
 	request := sendgrid.GetRequest(es.SengridAPIKey, "/v3/mail/send", "https://api.sendgrid.com")
 	request.Method = "POST"
+
 	var Body = mail.GetRequestBody(m)
+
 	request.Body = Body
 	response, err := sendgrid.API(request)
+
 	if err != nil {
-		return err
+		return utils.WrapError(err, utils.ErrThirdParty)
 	} else {
-		if response.StatusCode != 202 {
-			return utils.ErrThirdParty
+		if response.StatusCode != http.StatusAccepted {
+			return utils.WrapError(err, utils.ErrThirdParty)
 		}
 	}
-	return err
+
+	return nil
 }

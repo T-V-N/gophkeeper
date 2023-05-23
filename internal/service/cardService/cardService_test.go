@@ -154,7 +154,7 @@ func TestCardService_UpdateCard(t *testing.T) {
 				LastFourDigits: "asvdsf",
 				EntryHash:      "sameHash",
 			},
-			existingCardError: utils.ErrNoData,
+			existingCardError: utils.ErrNotFound,
 			want: want{
 				errCode:  codes.NotFound,
 				response: cardPB.UpdateCardResponse{},

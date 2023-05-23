@@ -10,7 +10,7 @@ USERS
     confirmed_at timestamp default null,
     verification_code varchar,
     totp_secret varchar,
-    totp_enabled boolean default FALSEc
+    totp_enabled boolean default false
 );
 
 CREATE TABLE IF NOT EXISTS 

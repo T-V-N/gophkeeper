@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -36,11 +35,11 @@ func (c *ConfirmationService) HandleConfirmUser(w http.ResponseWriter, r *http.R
 	err := c.app.ConfirmUser(ctx, email, confirmationCode)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrAuth:
+		switch err {
+		case utils.ErrBadRequest:
 			http.Error(w, "wrong code", http.StatusBadRequest)
 			return
-		case utils.ErrNoData:
+		case utils.ErrNotFound:
 			http.Error(w, "no such user", http.StatusNoContent)
 			return
 		default:

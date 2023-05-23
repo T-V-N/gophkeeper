@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,18 +24,13 @@ func (tns *TextNoteService) CreateTextNote(ctx context.Context, in *textNotePB.C
 	uid, err := service.ExtractUIDFromCtx(ctx)
 
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "unathorized")
+		return nil, status.Error(codes.Unauthenticated, "unauthorized")
 	}
 
 	id, err := tns.TextNoteApp.CreateTextNote(ctx, uid, in.NoteTextHash, in.NoteName)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
-		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
-		}
+		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
 	response.Id = id
@@ -50,23 +44,21 @@ func (tns *TextNoteService) UpdateTextNote(ctx context.Context, in *textNotePB.U
 	uid, err := service.ExtractUIDFromCtx(ctx)
 
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "unathorized")
+		return nil, status.Error(codes.Unauthenticated, "unauthorized")
 	}
 
 	err = tns.TextNoteApp.UpdateTextNote(ctx, uid, in.Id, in.NoteTextHash, in.NoteName, in.PreviousHash, in.IsDeleted, in.ForceUpdate)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrNoData:
-			return nil, status.Error(codes.NotFound, err.(utils.WrappedAPIError).Message())
+		switch err {
+		case utils.ErrNotFound:
+			return nil, status.Error(codes.NotFound, "note not found")
 		case utils.ErrConflict:
-			return nil, status.Error(codes.Unavailable, "conflict")
+			return nil, status.Error(codes.Unavailable, "cannot update text note which is already updated, sync first")
 		case utils.ErrNotAuthorized:
-			return nil, status.Error(codes.Unauthenticated, "unathorized")
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Unauthenticated, "unauthorized")
 		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 
@@ -79,7 +71,7 @@ func (tns *TextNoteService) ListTextNote(ctx context.Context, in *textNotePB.Lis
 	uid, err := service.ExtractUIDFromCtx(ctx)
 
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "unathorized")
+		return nil, status.Error(codes.Unauthenticated, "unauthorized")
 	}
 
 	existingHashes := []app.ExistingHash{}
@@ -90,13 +82,11 @@ func (tns *TextNoteService) ListTextNote(ctx context.Context, in *textNotePB.Lis
 	textNotes, err := tns.TextNoteApp.ListTextNote(ctx, uid, existingHashes)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrNoData:
-			return nil, status.Error(codes.NotFound, err.(utils.WrappedAPIError).Message())
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+		switch err {
+		case utils.ErrNotFound:
+			return nil, status.Error(codes.NotFound, "no notes available")
 		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 

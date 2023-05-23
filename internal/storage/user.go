@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -56,7 +57,7 @@ func (user *UserStorage) CreateUser(ctx context.Context, email, passwordHash, ve
 			return "", utils.ErrDuplicate
 		}
 
-		return "", err
+		return "", utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return uid, nil
@@ -78,13 +79,13 @@ func (user *UserStorage) UpdateUser(ctx context.Context, uid, email, passwordHas
 	_, err := user.Conn.Exec(ctx, updateBalanceSQL, uid, email, passwordHash, TOTPSecret, TOTPEnabled, confirmedAt)
 
 	if err != nil {
-		return err
+		return utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return nil
 }
 
-func (user *UserStorage) GetUserByEmail(ctx context.Context, email string) (User, error) {
+func (user *UserStorage) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	sqlStatement := `
 	SELECT uid, email, password_hash, totp_secret, totp_enabled, confirmed_at, verification_code FROM USERS
 	WHERE email = $1
@@ -97,6 +98,14 @@ func (user *UserStorage) GetUserByEmail(ctx context.Context, email string) (User
 
 	err := user.Conn.QueryRow(ctx, sqlStatement, email).Scan(&u.UID, &u.Email, &u.PasswordHash, &totpSecret, &u.TOTPEnabled, &confirmedAt, &u.VerificationCode)
 
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, utils.ErrNotFound
+		}
+
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
+	}
+
 	if totpSecret.Valid {
 		u.TOTPSecret = totpSecret.String
 	}
@@ -105,14 +114,10 @@ func (user *UserStorage) GetUserByEmail(ctx context.Context, email string) (User
 		u.ConfirmedAt = confirmedAt.Time
 	}
 
-	if err != nil {
-		return u, err
-	}
-
-	return u, nil
+	return &u, nil
 }
 
-func (user *UserStorage) GetUserByID(ctx context.Context, uid string) (User, error) {
+func (user *UserStorage) GetUserByID(ctx context.Context, uid string) (*User, error) {
 	sqlStatement := `
 	SELECT uid, email, password_hash, totp_secret, totp_enabled, confirmed_at, verification_code FROM USERS
 	WHERE uid = $1
@@ -124,7 +129,11 @@ func (user *UserStorage) GetUserByID(ctx context.Context, uid string) (User, err
 	err := user.Conn.QueryRow(ctx, sqlStatement, uid).Scan(&u.UID, &u.Email, &u.PasswordHash, &totpSecret, &u.TOTPEnabled, &confirmedAt, &u.VerificationCode)
 
 	if err != nil {
-		return u, err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, utils.ErrNotFound
+		}
+
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	if totpSecret.Valid {
@@ -135,7 +144,7 @@ func (user *UserStorage) GetUserByID(ctx context.Context, uid string) (User, err
 		u.ConfirmedAt = confirmedAt.Time
 	}
 
-	return u, nil
+	return &u, nil
 }
 
 func (user *UserStorage) Close() {

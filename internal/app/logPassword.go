@@ -2,10 +2,7 @@ package app
 
 import (
 	"context"
-	"errors"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
@@ -43,7 +40,7 @@ func (lp *LogPasswordApp) CreateLogPassword(ctx context.Context, uid, loginHash,
 	id, err := lp.LogPassword.CreateLogPassword(ctx, uid, loginHash, passwordHash, resourceName, entryHash)
 
 	if err != nil {
-		return "", utils.WrapError(err, utils.ErrDBLayer)
+		return "", err
 	}
 
 	return id, nil
@@ -53,24 +50,15 @@ func (lp *LogPasswordApp) UpdateLogPassword(ctx context.Context, uid, id, loginH
 	logPass, err := lp.LogPassword.GetLogPasswordByID(ctx, id)
 
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.NoDataFound {
-			return utils.WrapError(utils.ErrNoData, nil)
-		}
-
-		return utils.WrapError(err, utils.ErrDBLayer)
-	}
-
-	if logPass == nil {
-		return utils.WrapError(utils.ErrNotFound, nil)
-	}
-
-	if (previousHash != logPass.EntryHash) && !forceUpdate {
-		return utils.WrapError(utils.ErrConflict, nil)
+		return err
 	}
 
 	if logPass.UID != uid {
-		return utils.WrapError(utils.ErrNotAuthorized, nil)
+		return utils.ErrNotAuthorized
+	}
+
+	if (previousHash != logPass.EntryHash) && !forceUpdate {
+		return utils.ErrConflict
 	}
 
 	entryHash := utils.PackedCheckSum([]string{loginHash, passwordHash})

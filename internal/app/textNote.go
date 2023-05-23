@@ -2,10 +2,7 @@ package app
 
 import (
 	"context"
-	"errors"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
@@ -43,7 +40,7 @@ func (t *TextNoteApp) CreateTextNote(ctx context.Context, uid, noteTextHash, not
 	id, err := t.TextNote.CreateTextNote(ctx, uid, noteName, noteTextHash, entryHash)
 
 	if err != nil {
-		return "", utils.WrapError(err, utils.ErrDBLayer)
+		return "", err
 	}
 
 	return id, nil
@@ -53,24 +50,15 @@ func (t *TextNoteApp) UpdateTextNote(ctx context.Context, uid, id, noteTextHash,
 	textNote, err := t.TextNote.GetTextNoteByID(ctx, id)
 
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.NoDataFound {
-			return utils.WrapError(utils.ErrNoData, nil)
-		}
-
-		return utils.WrapError(err, utils.ErrDBLayer)
-	}
-
-	if textNote == nil {
-		return utils.WrapError(utils.ErrNotFound, nil)
-	}
-
-	if (previousHash != textNote.EntryHash) && !forceUpdate {
-		return utils.WrapError(utils.ErrConflict, nil)
+		return err
 	}
 
 	if textNote.UID != uid {
-		return utils.WrapError(utils.ErrNotAuthorized, nil)
+		return utils.ErrNotAuthorized
+	}
+
+	if (previousHash != textNote.EntryHash) && !forceUpdate {
+		return utils.ErrConflict
 	}
 
 	entryHash := utils.PackedCheckSum([]string{noteTextHash})
@@ -89,6 +77,7 @@ func (t *TextNoteApp) ListTextNote(ctx context.Context, uid string, existingHash
 
 	for _, note := range notes {
 		include := true
+
 		for _, existingHash := range existingHashes {
 			if note.EntryHash == existingHash.EntryHash {
 				include = false

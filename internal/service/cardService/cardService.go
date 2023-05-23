@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -31,12 +30,7 @@ func (cs *CardService) CreateCard(ctx context.Context, in *cardPB.CreateCardRequ
 	id, err := cs.CardApp.CreateCard(ctx, uid, in.CardNumberHash, in.ValidUntilHash, in.CVVHash, in.LastFourDigits)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
-		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
-		}
+		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
 	response.Id = id
@@ -56,17 +50,15 @@ func (cs *CardService) UpdateCard(ctx context.Context, in *cardPB.UpdateCardRequ
 	err = cs.CardApp.UpdateCard(ctx, uid, in.Id, in.CardNumberHash, in.ValidUntilHash, in.CVVHash, in.LastFourDigits, in.PreviousHash, in.IsDeleted, in.ForceUpdate)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrNoData:
-			return nil, status.Error(codes.NotFound, err.(utils.WrappedAPIError).Message())
+		switch err {
+		case utils.ErrNotFound:
+			return nil, status.Error(codes.NotFound, "card not found")
 		case utils.ErrConflict:
-			return nil, status.Error(codes.Unavailable, "conflict")
+			return nil, status.Error(codes.Unavailable, "cannot update card which is already updated, sync first")
 		case utils.ErrNotAuthorized:
-			return nil, status.Error(codes.Unauthenticated, "unathorized")
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Unauthenticated, "unauthorized")
 		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 
@@ -79,8 +71,7 @@ func (cs *CardService) ListCard(ctx context.Context, in *cardPB.ListCardRequest)
 	uid, err := service.ExtractUIDFromCtx(ctx)
 
 	if err != nil {
-		response.Error = err.Error()
-		return &response, nil
+		return nil, status.Error(codes.Unauthenticated, "unauthorized")
 	}
 
 	existingHashes := []app.ExistingHash{}
@@ -91,8 +82,12 @@ func (cs *CardService) ListCard(ctx context.Context, in *cardPB.ListCardRequest)
 	cards, err := cs.CardApp.ListCard(ctx, uid, existingHashes)
 
 	if err != nil {
-		response.Error = err.Error()
-		return &response, nil
+		switch err {
+		case utils.ErrNotFound:
+			return nil, status.Error(codes.NotFound, "no notes available")
+		default:
+			return nil, status.Error(codes.Internal, "internal server error ;(")
+		}
 	}
 
 	cardPBResponse := []*cardPB.CardEntry{}

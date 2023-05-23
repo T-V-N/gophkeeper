@@ -150,7 +150,7 @@ func TestLogPasswordService_UpdateLogPassword(t *testing.T) {
 				ResourceName: "someName",
 				EntryHash:    "sameHash",
 			},
-			existingLogPasswordError: utils.ErrNoData,
+			existingLogPasswordError: utils.ErrNotFound,
 			want: want{
 				errCode:  codes.NotFound,
 				response: lpPB.UpdateLogPasswordResponse{},

@@ -88,7 +88,7 @@ func TestConfirmService_Handle(t *testing.T) {
 			email:              "non_existent@email.com",
 			code:               "11111111",
 			getByEmailResponse: storage.User{},
-			getByEmailError:    utils.ErrNoData,
+			getByEmailError:    utils.ErrNotFound,
 			updateUser:         false,
 		},
 	}
@@ -109,7 +109,7 @@ func TestConfirmService_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.email != "" && tt.code != "" {
-				user.EXPECT().GetUserByEmail(gomock.Any(), tt.email).Return(tt.getByEmailResponse, tt.getByEmailError)
+				user.EXPECT().GetUserByEmail(gomock.Any(), tt.email).Return(&tt.getByEmailResponse, tt.getByEmailError)
 			}
 			if tt.updateUser {
 				user.EXPECT().UpdateUser(gomock.Any(), "1", tt.email, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)

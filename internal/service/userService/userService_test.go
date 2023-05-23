@@ -68,7 +68,7 @@ func TestUserService_Register(t *testing.T) {
 				errCode: codes.AlreadyExists,
 			},
 			accessStore:     true,
-			storageResponse: StorageResponse{"", &pgconn.PgError{Code: pgerrcode.UniqueViolation}},
+			storageResponse: StorageResponse{"", utils.ErrDuplicate},
 			sendEmail:       false,
 			senderResponse:  nil,
 		},
@@ -81,10 +81,9 @@ func TestUserService_Register(t *testing.T) {
 			want: want{
 				errCode: codes.InvalidArgument,
 			},
-			accessStore:     false,
-			storageResponse: StorageResponse{"", &pgconn.PgError{Code: pgerrcode.UniqueViolation}},
-			sendEmail:       false,
-			senderResponse:  nil,
+			accessStore:    false,
+			sendEmail:      false,
+			senderResponse: nil,
 		},
 		{
 			name: "wrong password",
@@ -153,7 +152,7 @@ func TestUserService_Login(t *testing.T) {
 
 		passwordHash, err := utils.HashDataSecurely(request.Password)
 
-		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(storage.User{
+		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(&storage.User{
 			UID:          "1",
 			TOTPEnabled:  false,
 			PasswordHash: passwordHash,
@@ -178,7 +177,7 @@ func TestUserService_Login(t *testing.T) {
 		}
 
 		passwordHash, _ := utils.HashDataSecurely(request.Password)
-		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(storage.User{
+		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(&storage.User{
 			UID:          "1",
 			PasswordHash: passwordHash,
 			TOTPSecret:   "AAAAAAAA",
@@ -204,7 +203,7 @@ func TestUserService_Login(t *testing.T) {
 		}
 
 		passwordHash, _ := utils.HashDataSecurely(request.Password)
-		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(storage.User{
+		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(&storage.User{
 			UID:          "1",
 			PasswordHash: passwordHash,
 			TOTPSecret:   "AAAAAAAA",
@@ -226,13 +225,12 @@ func TestUserService_Login(t *testing.T) {
 			Password: "123123123",
 		}
 
-		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(storage.User{}, utils.ErrNotAuthorized)
+		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(nil, utils.ErrNotFound)
 
 		_, err := us.Login(context.Background(), &request)
 
 		if unwrapError, ok := status.FromError(err); ok {
-			assert.Equal(t, unwrapError.Code(), codes.Unauthenticated)
-			assert.Equal(t, unwrapError.Message(), utils.ErrNotFound.Msg)
+			assert.Equal(t, unwrapError.Code(), codes.NotFound)
 		} else {
 			t.Error("can't parse error, unexpected test result")
 		}
@@ -245,7 +243,7 @@ func TestUserService_Login(t *testing.T) {
 		}
 
 		passwordHash, _ := utils.HashDataSecurely(request.Password + "1111")
-		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(storage.User{
+		user.EXPECT().GetUserByEmail(context.Background(), request.Email).Return(&storage.User{
 			UID:          "1",
 			PasswordHash: passwordHash,
 		}, nil)
@@ -273,7 +271,7 @@ func TestUserService_OTP(t *testing.T) {
 	t.Run("Generate OTP Secret", func(t *testing.T) {
 		ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("uid", "1"))
 
-		user.EXPECT().GetUserByID(ctx, "1").Return(storage.User{
+		user.EXPECT().GetUserByID(ctx, "1").Return(&storage.User{
 			UID:         "1",
 			TOTPEnabled: false,
 		}, nil)
@@ -293,7 +291,7 @@ func TestUserService_OTP(t *testing.T) {
 	t.Run("Generate OTP Secret when already enabled", func(t *testing.T) {
 		ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("uid", "1"))
 
-		user.EXPECT().GetUserByID(ctx, "1").Return(storage.User{
+		user.EXPECT().GetUserByID(ctx, "1").Return(&storage.User{
 			UID:         "1",
 			TOTPEnabled: true,
 		}, nil)
@@ -311,7 +309,7 @@ func TestUserService_OTP(t *testing.T) {
 	t.Run("Confirm secret with wrong code", func(t *testing.T) {
 		ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("uid", "1"))
 
-		user.EXPECT().GetUserByID(ctx, "1").Return(storage.User{
+		user.EXPECT().GetUserByID(ctx, "1").Return(&storage.User{
 			UID:         "1",
 			TOTPEnabled: false,
 		}, nil)
@@ -321,7 +319,7 @@ func TestUserService_OTP(t *testing.T) {
 		})
 
 		if unwrapError, ok := status.FromError(err); ok {
-			assert.Equal(t, unwrapError.Code(), codes.Unauthenticated)
+			assert.Equal(t, unwrapError.Code(), codes.InvalidArgument)
 		} else {
 			t.Error("can't parse error, unexpected test result")
 		}
@@ -336,7 +334,7 @@ func TestUserService_OTP(t *testing.T) {
 
 		otpCode, err := totp.GenerateCode(otpKey.Secret(), time.Now())
 
-		user.EXPECT().GetUserByID(ctx, "1").Return(storage.User{
+		user.EXPECT().GetUserByID(ctx, "1").Return(&storage.User{
 			UID:         "1",
 			TOTPEnabled: false,
 			TOTPSecret:  otpKey.Secret(),
@@ -357,7 +355,7 @@ func TestUserService_OTP(t *testing.T) {
 	t.Run("Confirm secret when it's enabled already", func(t *testing.T) {
 		ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("uid", "1"))
 
-		user.EXPECT().GetUserByID(ctx, "1").Return(storage.User{
+		user.EXPECT().GetUserByID(ctx, "1").Return(&storage.User{
 			UID:         "1",
 			TOTPEnabled: true,
 		}, nil)
@@ -380,7 +378,7 @@ func TestUserService_OTP(t *testing.T) {
 			Issuer:      "gophkeeper",
 		})
 
-		user.EXPECT().GetUserByID(ctx, "1").Return(storage.User{
+		user.EXPECT().GetUserByID(ctx, "1").Return(&storage.User{
 			UID:         "1",
 			TOTPEnabled: true,
 			TOTPSecret:  otpKey.Secret(),
@@ -405,7 +403,7 @@ func TestUserService_OTP(t *testing.T) {
 		})
 
 		otpCode, err := totp.GenerateCode(otpKey.Secret(), time.Now())
-		user.EXPECT().GetUserByID(ctx, "1").Return(storage.User{
+		user.EXPECT().GetUserByID(ctx, "1").Return(&storage.User{
 			UID:         "1",
 			TOTPEnabled: true,
 			TOTPSecret:  otpKey.Secret(),

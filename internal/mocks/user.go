@@ -64,10 +64,10 @@ func (mr *MockUserMockRecorder) CreateUser(arg0, arg1, arg2, arg3 interface{}) *
 }
 
 // GetUserByEmail mocks base method.
-func (m *MockUser) GetUserByEmail(arg0 context.Context, arg1 string) (storage.User, error) {
+func (m *MockUser) GetUserByEmail(arg0 context.Context, arg1 string) (*storage.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByEmail", arg0, arg1)
-	ret0, _ := ret[0].(storage.User)
+	ret0, _ := ret[0].(*storage.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -79,10 +79,10 @@ func (mr *MockUserMockRecorder) GetUserByEmail(arg0, arg1 interface{}) *gomock.C
 }
 
 // GetUserByID mocks base method.
-func (m *MockUser) GetUserByID(arg0 context.Context, arg1 string) (storage.User, error) {
+func (m *MockUser) GetUserByID(arg0 context.Context, arg1 string) (*storage.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByID", arg0, arg1)
-	ret0, _ := ret[0].(storage.User)
+	ret0, _ := ret[0].(*storage.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

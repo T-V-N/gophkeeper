@@ -146,7 +146,7 @@ func TestTextNoteService_UpdateTextNote(t *testing.T) {
 				NoteTextHash: "asdasd",
 				EntryHash:    "sameHash",
 			},
-			existingTextNoteErr: utils.ErrNoData,
+			existingTextNoteErr: utils.ErrNotFound,
 			want: want{
 				errCode:  codes.NotFound,
 				response: tPB.UpdateTextNoteResponse{},

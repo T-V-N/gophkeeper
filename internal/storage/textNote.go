@@ -2,11 +2,14 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"log"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
+	"github.com/T-V-N/gophkeeper/internal/utils"
 )
 
 type TextNotesStorage struct {
@@ -43,7 +46,7 @@ func (t *TextNotesStorage) CreateTextNote(ctx context.Context, uid, noteName, no
 	err := t.Conn.QueryRow(ctx, sqlStatement, uid, noteName, noteTextHash, entryHash).Scan(&id)
 
 	if err != nil {
-		return id, err
+		return id, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return id, nil
@@ -64,7 +67,7 @@ func (t *TextNotesStorage) UpdateTextNote(ctx context.Context, id, noteName, not
 	_, err := t.Conn.Exec(ctx, updateBalanceSQL, id, id, noteName, noteTextHash, entryHash, isDeleted)
 
 	if err != nil {
-		return err
+		return utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return nil
@@ -77,7 +80,13 @@ func (t *TextNotesStorage) ListTextNoteByUID(ctx context.Context, uid string) ([
 
 	rows, err := t.Conn.Query(ctx, sqlStatement, uid)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, utils.ErrNotFound
+			}
+
+			return nil, utils.WrapError(err, utils.ErrDBLayer)
+		}
 	}
 
 	defer rows.Close()
@@ -97,7 +106,7 @@ func (t *TextNotesStorage) ListTextNoteByUID(ctx context.Context, uid string) ([
 
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return TextNotes, nil
@@ -110,7 +119,12 @@ func (t *TextNotesStorage) GetTextNoteByID(ctx context.Context, id string) (*Tex
 
 	row, err := t.Conn.Query(ctx, sqlStatement, id)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, utils.ErrNotFound
+			}
+			return nil, utils.WrapError(err, utils.ErrDBLayer)
+		}
 	}
 
 	defer row.Close()
@@ -120,7 +134,7 @@ func (t *TextNotesStorage) GetTextNoteByID(ctx context.Context, id string) (*Tex
 	err = row.Scan(&note.ID, &note.UID, &note.NoteName, &note.NoteTextHash, &note.EntryHash, &note.IsDeleted)
 
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrDBLayer)
 	}
 
 	return &note, nil

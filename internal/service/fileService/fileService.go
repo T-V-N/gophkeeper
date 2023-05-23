@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,12 +31,7 @@ func (fs *FileService) CreateFile(ctx context.Context, in *filePB.CreateFileRequ
 	id, err := fs.FileApp.CreateFile(ctx, uid, in.Filename)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrDBLayer:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
-		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
-		}
+		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
 	response.Id = id
@@ -57,15 +51,17 @@ func (fs *FileService) RequestUpdateFile(ctx context.Context, in *filePB.UpdateF
 	link, err := fs.FileApp.RequestUpdateFile(ctx, uid, in.Id)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrNoData:
-			return nil, status.Error(codes.NotFound, err.(utils.WrappedAPIError).Message())
+		switch err {
+		case utils.ErrNotFound:
+			return nil, status.Error(codes.NotFound, "file not found")
 		case utils.ErrConflict:
-			return nil, status.Error(codes.Unavailable, "conflict")
+			return nil, status.Error(codes.Unavailable, "cannot update file note which is already being updated, sync first")
 		case utils.ErrNotAuthorized:
-			return nil, status.Error(codes.Unauthenticated, "unathorized")
+			return nil, status.Error(codes.Unauthenticated, "unauthorized")
+		case utils.ErrThirdParty:
+			return nil, status.Error(codes.Unavailable, "cannot connect to third party service")
 		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 
@@ -86,15 +82,17 @@ func (fs *FileService) CommitUpdateFile(ctx context.Context, in *filePB.CommitUp
 	err = fs.FileApp.CommitUpdateFile(ctx, uid, in.Id, in.CommittedAt.AsTime(), in.ForceUpdate)
 
 	if err != nil {
-		switch errors.Unwrap(err) {
-		case utils.ErrNoData:
-			return nil, status.Error(codes.NotFound, err.(utils.WrappedAPIError).Message())
+		switch err {
+		case utils.ErrNotFound:
+			return nil, status.Error(codes.NotFound, "file not found")
 		case utils.ErrConflict:
-			return nil, status.Error(codes.Unavailable, "conflict")
+			return nil, status.Error(codes.Unavailable, "cannot update file note which is already being updated, sync first")
 		case utils.ErrNotAuthorized:
-			return nil, status.Error(codes.Unauthenticated, "unathorized")
+			return nil, status.Error(codes.Unauthenticated, "unauthorized")
+		case utils.ErrThirdParty:
+			return nil, status.Error(codes.Unavailable, "cannot connect to third party service")
 		default:
-			return nil, status.Error(codes.Internal, err.(utils.WrappedAPIError).Message())
+			return nil, status.Error(codes.Internal, "internal server error ;(")
 		}
 	}
 
