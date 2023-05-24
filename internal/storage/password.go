@@ -117,8 +117,9 @@ func (lp *LogPasswordStorage) GetLogPasswordByID(ctx context.Context, id string)
 	sqlStatement := `
 	SELECT id, uid, login_hash, password_hash, resource_name, entry_hash, is_deleted FROM log_passwords WHERE ID = $1 
 	`
+	logPass := LogPassword{}
 
-	row, err := lp.Conn.Query(ctx, sqlStatement, id)
+	err := lp.Conn.QueryRow(ctx, sqlStatement, id).Scan(&logPass.ID, &logPass.UID, &logPass.LoginHash, &logPass.PasswordHash, &logPass.ResourceName, &logPass.EntryHash, &logPass.IsDeleted)
 	if err != nil {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -128,12 +129,6 @@ func (lp *LogPasswordStorage) GetLogPasswordByID(ctx context.Context, id string)
 			return nil, utils.WrapError(err, utils.ErrDBLayer)
 		}
 	}
-
-	defer row.Close()
-
-	logPass := LogPassword{}
-
-	err = row.Scan(&logPass.ID, &logPass.UID, &logPass.LoginHash, &logPass.PasswordHash, &logPass.ResourceName, &logPass.EntryHash, &logPass.IsDeleted)
 
 	if err != nil {
 		return nil, utils.WrapError(err, utils.ErrDBLayer)

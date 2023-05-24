@@ -61,13 +61,13 @@ func (c *CardStorage) UpdateCard(ctx context.Context, id, cardNumberHash, validU
 	valid_until_hash = $3,
 	CVV_hash = $4,
 	last_four_digits = $5,
-	entry_hash = $6
+	entry_hash = $6,
 	is_deleted = $7
 
 	WHERE id = $1
 	`
 
-	_, err := c.Conn.Exec(ctx, updateBalanceSQL, id, id, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, entryHash, isDeleted)
+	_, err := c.Conn.Exec(ctx, updateBalanceSQL, id, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, entryHash, isDeleted)
 
 	if err != nil {
 		return utils.WrapError(err, utils.ErrDBLayer)
@@ -120,7 +120,9 @@ func (c *CardStorage) GetCardByID(ctx context.Context, id string) (*Card, error)
 	SELECT id, uid, card_number_hash, valid_until_hash, CVV_hash, last_four_digits, entry_hash, is_deleted FROM cards WHERE ID = $1 
 	`
 
-	rows, err := c.Conn.Query(ctx, sqlStatement, id)
+	card := Card{}
+
+	err := c.Conn.QueryRow(ctx, sqlStatement, id).Scan(&card.ID, &card.UID, &card.CardNumberHash, &card.ValidUntilHash, &card.CVVHash, &card.LastFourDigits, &card.EntryHash, &card.IsDeleted)
 	if err != nil {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -130,12 +132,6 @@ func (c *CardStorage) GetCardByID(ctx context.Context, id string) (*Card, error)
 			return nil, utils.WrapError(err, utils.ErrDBLayer)
 		}
 	}
-
-	defer rows.Close()
-
-	card := Card{}
-
-	err = rows.Scan(&card.ID, &card.UID, &card.CardNumberHash, &card.ValidUntilHash, &card.CVVHash, &card.LastFourDigits, &card.EntryHash, &card.IsDeleted)
 
 	if err != nil {
 		return nil, utils.WrapError(err, utils.ErrDBLayer)

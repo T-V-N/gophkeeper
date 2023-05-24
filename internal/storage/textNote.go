@@ -93,7 +93,7 @@ func (t *TextNotesStorage) ListTextNoteByUID(ctx context.Context, uid string) ([
 
 	for rows.Next() {
 		entry := TextNote{}
-		err = rows.Scan(&entry.ID, &entry.UID, &entry.NoteTextHash, &entry.EntryHash, &entry.IsDeleted)
+		err = rows.Scan(&entry.ID, &entry.UID, &entry.NoteName, &entry.NoteTextHash, &entry.EntryHash, &entry.IsDeleted)
 
 		if err != nil {
 			return nil, err
@@ -114,8 +114,9 @@ func (t *TextNotesStorage) GetTextNoteByID(ctx context.Context, id string) (*Tex
 	sqlStatement := `
 	SELECT id, uid, note_name, note_text_hash, entry_hash, is_deleted FROM text_notes WHERE ID = $1
 	`
+	note := TextNote{}
 
-	row, err := t.Conn.Query(ctx, sqlStatement, id)
+	err := t.Conn.QueryRow(ctx, sqlStatement, id).Scan(&note.ID, &note.UID, &note.NoteName, &note.NoteTextHash, &note.EntryHash, &note.IsDeleted)
 	if err != nil {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -124,12 +125,6 @@ func (t *TextNotesStorage) GetTextNoteByID(ctx context.Context, id string) (*Tex
 			return nil, utils.WrapError(err, utils.ErrDBLayer)
 		}
 	}
-
-	defer row.Close()
-
-	note := TextNote{}
-
-	err = row.Scan(&note.ID, &note.UID, &note.NoteName, &note.NoteTextHash, &note.EntryHash, &note.IsDeleted)
 
 	if err != nil {
 		return nil, utils.WrapError(err, utils.ErrDBLayer)
