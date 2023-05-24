@@ -19,10 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	File_CreateFile_FullMethodName       = "/File/CreateFile"
-	File_UpdateFile_FullMethodName       = "/File/UpdateFile"
-	File_CommitUpdateFile_FullMethodName = "/File/CommitUpdateFile"
-	File_ListFile_FullMethodName         = "/File/ListFile"
+	File_CreateFile_FullMethodName        = "/File/CreateFile"
+	File_RequestUpdateFile_FullMethodName = "/File/RequestUpdateFile"
+	File_CommitUpdateFile_FullMethodName  = "/File/CommitUpdateFile"
+	File_ListFile_FullMethodName          = "/File/ListFile"
 )
 
 // FileClient is the client API for File service.
@@ -30,7 +30,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FileClient interface {
 	CreateFile(ctx context.Context, in *CreateFileRequest, opts ...grpc.CallOption) (*CreateFileResponse, error)
-	UpdateFile(ctx context.Context, in *UpdateFileRequest, opts ...grpc.CallOption) (*UpdateFileResponse, error)
+	RequestUpdateFile(ctx context.Context, in *UpdateFileRequest, opts ...grpc.CallOption) (*UpdateFileResponse, error)
 	CommitUpdateFile(ctx context.Context, in *CommitUpdateRequest, opts ...grpc.CallOption) (*CommitUpdateResponse, error)
 	ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*ListFileResponse, error)
 }
@@ -52,9 +52,9 @@ func (c *fileClient) CreateFile(ctx context.Context, in *CreateFileRequest, opts
 	return out, nil
 }
 
-func (c *fileClient) UpdateFile(ctx context.Context, in *UpdateFileRequest, opts ...grpc.CallOption) (*UpdateFileResponse, error) {
+func (c *fileClient) RequestUpdateFile(ctx context.Context, in *UpdateFileRequest, opts ...grpc.CallOption) (*UpdateFileResponse, error) {
 	out := new(UpdateFileResponse)
-	err := c.cc.Invoke(ctx, File_UpdateFile_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, File_RequestUpdateFile_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (c *fileClient) ListFile(ctx context.Context, in *ListFileRequest, opts ...
 // for forward compatibility
 type FileServer interface {
 	CreateFile(context.Context, *CreateFileRequest) (*CreateFileResponse, error)
-	UpdateFile(context.Context, *UpdateFileRequest) (*UpdateFileResponse, error)
+	RequestUpdateFile(context.Context, *UpdateFileRequest) (*UpdateFileResponse, error)
 	CommitUpdateFile(context.Context, *CommitUpdateRequest) (*CommitUpdateResponse, error)
 	ListFile(context.Context, *ListFileRequest) (*ListFileResponse, error)
 	mustEmbedUnimplementedFileServer()
@@ -97,8 +97,8 @@ type UnimplementedFileServer struct {
 func (UnimplementedFileServer) CreateFile(context.Context, *CreateFileRequest) (*CreateFileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateFile not implemented")
 }
-func (UnimplementedFileServer) UpdateFile(context.Context, *UpdateFileRequest) (*UpdateFileResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateFile not implemented")
+func (UnimplementedFileServer) RequestUpdateFile(context.Context, *UpdateFileRequest) (*UpdateFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestUpdateFile not implemented")
 }
 func (UnimplementedFileServer) CommitUpdateFile(context.Context, *CommitUpdateRequest) (*CommitUpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CommitUpdateFile not implemented")
@@ -137,20 +137,20 @@ func _File_CreateFile_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
-func _File_UpdateFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _File_RequestUpdateFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(FileServer).UpdateFile(ctx, in)
+		return srv.(FileServer).RequestUpdateFile(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: File_UpdateFile_FullMethodName,
+		FullMethod: File_RequestUpdateFile_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FileServer).UpdateFile(ctx, req.(*UpdateFileRequest))
+		return srv.(FileServer).RequestUpdateFile(ctx, req.(*UpdateFileRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -203,8 +203,8 @@ var File_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _File_CreateFile_Handler,
 		},
 		{
-			MethodName: "UpdateFile",
-			Handler:    _File_UpdateFile_Handler,
+			MethodName: "RequestUpdateFile",
+			Handler:    _File_RequestUpdateFile_Handler,
 		},
 		{
 			MethodName: "CommitUpdateFile",

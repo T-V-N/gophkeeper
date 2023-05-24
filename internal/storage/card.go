@@ -40,7 +40,7 @@ func InitCardStorage(cfg *config.Config) (*CardStorage, error) {
 
 func (c *CardStorage) CreateCard(ctx context.Context, uid, cardNumberHash, validUntilHash, CVVHash, lastFourDigits, entryHash string) (string, error) {
 	sqlStatement := `
-	INSERT INTO log_passwords (uid, card_number_hash, valid_until_hash, CVV_hash, last_four_digits, entry_hash)
+	INSERT INTO cards (uid, card_number_hash, valid_until_hash, CVV_hash, last_four_digits, entry_hash)
 	VALUES ($1, $2, $3, $4, $5, $6)
 	RETURNING id;`
 
@@ -78,7 +78,7 @@ func (c *CardStorage) UpdateCard(ctx context.Context, id, cardNumberHash, validU
 
 func (c *CardStorage) ListCardByUID(ctx context.Context, uid string) ([]Card, error) {
 	sqlStatement := `
-	SELECT id, uid, card_number_hash, valid_until_hash, CVV_hash, last_four_digits, entry_hash, is_deleted FROM log_passwords WHERE UID = $1 
+	SELECT id, uid, card_number_hash, valid_until_hash, CVV_hash, last_four_digits, entry_hash, is_deleted FROM cards WHERE UID = $1 
 	`
 
 	rows, err := c.Conn.Query(ctx, sqlStatement, uid)
@@ -117,7 +117,7 @@ func (c *CardStorage) ListCardByUID(ctx context.Context, uid string) ([]Card, er
 
 func (c *CardStorage) GetCardByID(ctx context.Context, id string) (*Card, error) {
 	sqlStatement := `
-	SELECT id, uid, card_number_hash, valid_until_hash, CVV_hash, last_four_digits, entry_hash, is_deleted FROM log_passwords WHERE ID = $1 
+	SELECT id, uid, card_number_hash, valid_until_hash, CVV_hash, last_four_digits, entry_hash, is_deleted FROM cards WHERE ID = $1 
 	`
 
 	rows, err := c.Conn.Query(ctx, sqlStatement, id)

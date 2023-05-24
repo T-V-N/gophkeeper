@@ -38,7 +38,7 @@ func InitTextNoteStorage(cfg *config.Config) (*TextNotesStorage, error) {
 
 func (t *TextNotesStorage) CreateTextNote(ctx context.Context, uid, noteName, noteTextHash, entryHash string) (string, error) {
 	sqlStatement := `
-	INSERT INTO CARDS (uid, note_name, note_text_hash, entry_hash)
+	INSERT INTO text_notes (uid, note_name, note_text_hash, entry_hash)
 	VALUES ($1, $2, $3, $4)
 	RETURNING id;`
 
@@ -54,17 +54,15 @@ func (t *TextNotesStorage) CreateTextNote(ctx context.Context, uid, noteName, no
 
 func (t *TextNotesStorage) UpdateTextNote(ctx context.Context, id, noteName, noteTextHash, entryHash string, isDeleted bool) error {
 	updateBalanceSQL := `
-	UPDATE USERS SET 
-	card_number_hash = $2,
-	valid_until_hash = $3,
-	cvv_hash = $4,
-	last_four_digits = $5,
-	entry_hash = $6,
-	is_deleted = $7
+	UPDATE text_notes SET 
+	note_name = $2,
+	note_text_hash = $3,
+	entry_hash = $4,
+	is_deleted = $5
 	WHERE id = $1
 	`
 
-	_, err := t.Conn.Exec(ctx, updateBalanceSQL, id, id, noteName, noteTextHash, entryHash, isDeleted)
+	_, err := t.Conn.Exec(ctx, updateBalanceSQL, id, noteName, noteTextHash, entryHash, isDeleted)
 
 	if err != nil {
 		return utils.WrapError(err, utils.ErrDBLayer)

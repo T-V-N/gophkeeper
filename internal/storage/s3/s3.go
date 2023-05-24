@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/T-V-N/gophkeeper/internal/config"
 	"github.com/T-V-N/gophkeeper/internal/utils"
@@ -46,10 +47,12 @@ func InitS3Storage(ctx context.Context, cfg *config.S3Config) *S3Store {
 		o.UsePathStyle = true
 	})
 
-	return &S3Store{S3Client: client, BucketName: cfg.S3Bucket, Cfg: cfg}
+	presignClient := s3.NewPresignClient(client)
+
+	return &S3Store{S3Client: client, PresignClient: presignClient, BucketName: cfg.S3Bucket, Cfg: cfg}
 }
 
-func (s S3Store) UploadLargeObject(ctx context.Context, objectKey string, largeObject []byte) error {
+func (s *S3Store) UploadLargeObject(ctx context.Context, objectKey string, largeObject []byte) error {
 	var partMiBs int64 = 10
 
 	largeBuffer := bytes.NewReader(largeObject)
@@ -73,12 +76,13 @@ func (s S3Store) DeleteObject(ctx context.Context, objectKey string) error {
 	return utils.WrapError(err, utils.ErrThirdParty)
 }
 
-func (s S3Store) GetUploadLink(ctx context.Context, objectKey string) (string, error) {
+func (s *S3Store) GetUploadLink(ctx context.Context, objectKey string) (string, error) {
 	request, err := s.PresignClient.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s.BucketName),
 		Key:    aws.String(objectKey),
+		ACL:    types.ObjectCannedACL("public-read"),
 	}, func(opts *s3.PresignOptions) {
-		opts.Expires = time.Duration(int64(s.Cfg.FileUpdateTimeWindow) * int64(time.Second))
+		opts.Expires = time.Duration(int64(s.Cfg.FileUpdateTimeWindow) * int64(time.Minute))
 	})
 
 	if err != nil {
@@ -88,15 +92,15 @@ func (s S3Store) GetUploadLink(ctx context.Context, objectKey string) (string, e
 	return request.URL, nil
 }
 
-func (s S3Store) GetFileUpdatedAt(ctx context.Context, objectKey string) (time.Time, error) {
-	request, err := s.S3Client.GetObjectAttributes(ctx, &s3.GetObjectAttributesInput{
+func (s *S3Store) GetFileInfo(ctx context.Context, objectKey string) (time.Time, string, error) {
+	request, err := s.S3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.BucketName),
 		Key:    aws.String(objectKey),
 	})
 
 	if err != nil {
-		return time.Time{}, utils.WrapError(err, utils.ErrThirdParty)
+		return time.Time{}, "", utils.WrapError(err, utils.ErrThirdParty)
 	}
 
-	return *request.LastModified, nil
+	return *request.LastModified, s.Cfg.S3URL + "/" + s.BucketName + "/" + objectKey, nil
 }

@@ -22,7 +22,7 @@ LOG_PASSWORDS
     resource_name varchar,
     login_hash varchar,
     entry_hash varchar not null,
-    is_deleted boolean
+    is_deleted boolean default false
 );
 
 CREATE TABLE IF NOT EXISTS 
@@ -35,7 +35,7 @@ CARDS
     CVV_hash varchar not null,
     last_four_digits varchar not null,
     entry_hash varchar not null,
-    is_deleted boolean 
+    is_deleted boolean default false
 );
 
 CREATE TABLE IF NOT EXISTS 
@@ -46,7 +46,7 @@ FILES
     file_name varchar,
     s3_link varchar,
     committed_at timestamp default null,
-    is_deleted boolean
+    is_deleted boolean default false
 );
 
 CREATE TABLE IF NOT EXISTS 
@@ -57,7 +57,7 @@ TEXT_NOTES
     note_name varchar,
     note_text_hash varchar,
     entry_hash varchar not null,
-    is_deleted boolean
+    is_deleted boolean default false
 );
 
 COMMIT;

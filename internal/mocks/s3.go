@@ -35,19 +35,20 @@ func (m *MockS3Store) EXPECT() *MockS3StoreMockRecorder {
 	return m.recorder
 }
 
-// GetFileUpdatedAt mocks base method.
-func (m *MockS3Store) GetFileUpdatedAt(arg0 context.Context, arg1 string) (time.Time, error) {
+// GetFileInfo mocks base method.
+func (m *MockS3Store) GetFileInfo(arg0 context.Context, arg1 string) (time.Time, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFileUpdatedAt", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetFileInfo", arg0, arg1)
 	ret0, _ := ret[0].(time.Time)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// GetFileUpdatedAt indicates an expected call of GetFileUpdatedAt.
-func (mr *MockS3StoreMockRecorder) GetFileUpdatedAt(arg0, arg1 interface{}) *gomock.Call {
+// GetFileInfo indicates an expected call of GetFileInfo.
+func (mr *MockS3StoreMockRecorder) GetFileInfo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileUpdatedAt", reflect.TypeOf((*MockS3Store)(nil).GetFileUpdatedAt), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileInfo", reflect.TypeOf((*MockS3Store)(nil).GetFileInfo), arg0, arg1)
 }
 
 // GetUploadLink mocks base method.

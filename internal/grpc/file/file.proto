@@ -56,7 +56,7 @@ message ListFileResponse {
 
 service File {
   rpc CreateFile(CreateFileRequest) returns (CreateFileResponse);
-  rpc UpdateFile(UpdateFileRequest) returns (UpdateFileResponse);
+  rpc RequestUpdateFile(UpdateFileRequest) returns (UpdateFileResponse);
   rpc CommitUpdateFile(CommitUpdateRequest) returns (CommitUpdateResponse);
   rpc ListFile(ListFileRequest) returns (ListFileResponse);
 }

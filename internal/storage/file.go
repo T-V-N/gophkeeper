@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log"
 	"time"
@@ -39,8 +40,8 @@ func InitFileStorage(cfg *config.Config) (*FileStorage, error) {
 
 func (f *FileStorage) CreateFile(ctx context.Context, uid, fileName string) (string, error) {
 	sqlStatement := `
-	INSERT INTO CARDS (uid, file_name)
-	VALUES ($1, $2)
+	INSERT INTO FILES (uid, file_name, is_deleted)
+	VALUES ($1, $2, false)
 	RETURNING id;`
 
 	var id string
@@ -55,11 +56,11 @@ func (f *FileStorage) CreateFile(ctx context.Context, uid, fileName string) (str
 
 func (f *FileStorage) UpdateFile(ctx context.Context, id, fileName, S3Link string, isDeleted bool, CommitedAt time.Time) error {
 	updateFileSQL := `
-	UPDATE FILE SET 
+	UPDATE FILES SET 
 	file_name = $2,
 	s3_link = $3,
 	committed_at = $4,
-	is_deleted = $5,
+	is_deleted = $5
 	WHERE id = $1
 	`
 
@@ -77,7 +78,12 @@ func (f *FileStorage) GetFileByID(ctx context.Context, id string) (*File, error)
 	SELECT id, uid, file_name, s3_link, committed_at, is_deleted FROM files WHERE ID = $1 
 	`
 
-	row, err := f.Conn.Query(ctx, sqlStatement, id)
+	var s3Link sql.NullString
+	var committedAt sql.NullTime
+
+	file := File{}
+
+	err := f.Conn.QueryRow(ctx, sqlStatement, id).Scan(&file.ID, &file.UID, &file.FileName, &s3Link, &committedAt, &file.IsDeleted)
 	if err != nil {
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -88,11 +94,13 @@ func (f *FileStorage) GetFileByID(ctx context.Context, id string) (*File, error)
 		}
 	}
 
-	defer row.Close()
+	if s3Link.Valid {
+		file.S3Link = s3Link.String
+	}
 
-	file := File{}
-
-	err = row.Scan(&file.ID, &file.UID, &file.FileName, &file.S3Link, &file.CommittedAt, &file.IsDeleted)
+	if committedAt.Valid {
+		file.CommittedAt = committedAt.Time
+	}
 
 	if err != nil {
 		return nil, utils.WrapError(err, utils.ErrDBLayer)
@@ -103,7 +111,8 @@ func (f *FileStorage) GetFileByID(ctx context.Context, id string) (*File, error)
 
 func (f *FileStorage) ListFilesByUID(ctx context.Context, uid string) (*[]File, error) {
 	sqlStatement := `
-	SELECT id, uid, file_name, s3_link, committed_at, is_deleted FROM files WHERE UID = $1 
+	SELECT id, uid, file_name, s3_link, committed_at, is_deleted FROM files 
+	WHERE UID = $1 and is_deleted = false and committed_at is not null
 	`
 
 	rows, err := f.Conn.Query(ctx, sqlStatement, uid)

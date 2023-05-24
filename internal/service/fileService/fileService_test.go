@@ -250,7 +250,7 @@ func TestFileService_CommitUpdateFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f.EXPECT().GetFileByID(tt.ctx, tt.request.Id).Return(&tt.existingFile, nil)
 			if !tt.omitS3Call {
-				s3.EXPECT().GetFileUpdatedAt(tt.ctx, tt.request.Id).Return(tt.S3CommitedAt, nil)
+				s3.EXPECT().GetFileInfo(tt.ctx, tt.request.Id).Return(tt.S3CommitedAt, "", nil)
 			}
 			if !tt.omitUpdate {
 				f.EXPECT().UpdateFile(tt.ctx, tt.request.Id, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
