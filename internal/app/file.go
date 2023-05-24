@@ -22,7 +22,7 @@ type File interface {
 
 type S3Store interface {
 	GetUploadLink(ctx context.Context, id string) (string, error)
-	GetFileUpdatedAt(ctx context.Context, id string) (time.Time, error)
+	GetFileInfo(ctx context.Context, id string) (time.Time, string, error)
 }
 
 type FileApp struct {
@@ -41,7 +41,7 @@ func InitFileApp(cfg *config.Config, logger *zap.SugaredLogger) (*FileApp, error
 
 	s3Store := s3.InitS3Storage(context.Background(), &cfg.S3Config)
 
-	return &FileApp{file, s3Store, cfg, logger}, nil
+	return &FileApp{File: file, S3: s3Store, Cfg: cfg, logger: logger}, nil
 }
 
 func (fa *FileApp) CreateFile(ctx context.Context, uid, fileName string) (string, error) {
@@ -85,17 +85,17 @@ func (fa *FileApp) CommitUpdateFile(ctx context.Context, uid, id string, previou
 		return utils.ErrNotAuthorized
 	}
 
-	fileCommitted, err := fa.S3.GetFileUpdatedAt(ctx, id)
+	fileCommitted, url, err := fa.S3.GetFileInfo(ctx, id)
 
 	if err != nil {
 		return err
 	}
 
-	if (file.CommittedAt.Unix() != previousCommitedAt.Unix()) && !forceUpdate {
+	if (int64(file.CommittedAt.Compare(previousCommitedAt)) != 0) && !forceUpdate && file.CommittedAt.Unix() != 0 {
 		return utils.ErrConflict
 	}
 
-	return fa.File.UpdateFile(ctx, id, file.FileName, file.S3Link, file.IsDeleted, fileCommitted)
+	return fa.File.UpdateFile(ctx, id, file.FileName, url, file.IsDeleted, fileCommitted)
 }
 
 func (fa *FileApp) ListFile(ctx context.Context, uid string, existingFiles []ExistingFiles) ([]storage.File, error) {
