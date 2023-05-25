@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+option go_package = "grpc.user";
+
+message Empty {}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message RegisterResponse {
+  string auth_token = 1;
+}
+
+message ConfirmUserRequest {
+  string email = 1;
+  string code = 2;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string otp_code = 3;
+}
+
+message LoginResponse {
+  string auth_token = 1;
+}
+
+message GenerateTOTPResponse {
+  string otp_key = 1;
+}
+
+message EnableTOTPRequest {
+  string otp_code = 1;
+}
+
+message DisableTOTPRequest {
+  string otp_code = 1;
+}
+
+
+service User {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc ConfirmUser(ConfirmUserRequest) returns (Empty);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GenerateTOTP(Empty) returns (GenerateTOTPResponse);
+  rpc EnableTOTP(EnableTOTPRequest) returns (Empty);
+  rpc DisableTOTP(DisableTOTPRequest) returns (Empty);
+}

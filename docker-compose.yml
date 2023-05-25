@@ -1,0 +1,28 @@
+version: '3'
+volumes:
+  gophkeeper:
+services:
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: keeper
+    ports:
+      - "5433:5432"
+    volumes:
+      - gophkeeper:/var/lib/postgresql/data
+    restart: always
+  s3mock:
+    image: adobe/s3mock
+    environment:
+      initialBuckets: mockbucket
+      root: mockbucket
+      retainFilesOnExit: true
+    ports:
+      - "9090:9090"
+      - "9191:9191"
+    volumes:
+      - ./mockbucket:/mockbucket
+    restart: always
+  

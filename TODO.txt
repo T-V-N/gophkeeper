@@ -1,0 +1,5 @@
+1. Each user can't save more than 500 entries
+3. HTTPS for email confirm, GRPC for the rest
+4. Убрать grpc для подтверждения юзера
+5. Убрать почту из запроса на подтверждение
+6. логика фильтраций в grpc хендлерах для синхронизации

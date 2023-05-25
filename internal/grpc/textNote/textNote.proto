@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+option go_package = "grpc.textNote";
+
+message TextNoteEntry {
+  string id = 1;
+  string note_text_hash = 2;
+  string note_name = 3;
+  string entry_hash = 4;
+}
+
+message ExistingTextNoteHash {
+  string id = 1;
+  string entry_hash = 2;
+}
+
+message ListTextNoteRequest {
+  repeated ExistingTextNoteHash existing_hashes = 1;
+}
+
+message ListTextNoteResponse {
+  string error = 1;
+  repeated TextNoteEntry notes = 2;
+}
+
+message CreateTextNoteRequest {
+  string note_text_hash = 1;
+  string note_name = 2;
+}
+
+message CreateTextNoteResponse {
+  string error = 1;
+  string id = 2;
+}
+
+message UpdateTextNoteRequest {
+  string id = 1;
+  string note_text_hash = 2;
+  string note_name = 3;
+  string previous_hash = 4;
+  bool is_deleted = 5;
+  bool force_update = 6;
+}
+
+message UpdateTextNoteResponse {
+  string error = 1;
+}
+
+service TextNote {
+  rpc ListTextNote(ListTextNoteRequest) returns (ListTextNoteResponse);
+  rpc CreateTextNote(CreateTextNoteRequest) returns (CreateTextNoteResponse);
+  rpc UpdateTextNote(UpdateTextNoteRequest) returns (UpdateTextNoteResponse);
+}
